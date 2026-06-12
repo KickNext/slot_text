@@ -11,6 +11,8 @@
   when their slot was empty.
 - Springy curves now render their overshoot (it was clamped flat before), so
   glyphs visibly settle with a bounce; `bounce` scales the overshoot depth.
+- First settled frames now preserve full text-run advances instead of measuring
+  isolated glyphs, avoiding broken startup letter spacing.
 - Added reduced-motion support: `SlotText` snaps instantly when the platform
   disables animations (`respectDisableAnimations`).
 - Added widget tests and a two-page studio example app (designed showcase +

@@ -36,6 +36,32 @@ void main() {
     expect(find.byKey(const ValueKey('slot_text_settled')), findsOneWidget);
   });
 
+  testWidgets('first settled frame keeps the full text run width', (
+    tester,
+  ) async {
+    const style = TextStyle(
+      fontSize: 72,
+      fontWeight: FontWeight.w900,
+      letterSpacing: -1.8,
+    );
+    const text = 'AVATAR';
+
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(child: SlotText(text, style: style)),
+      ),
+    );
+
+    final painter = TextPainter(
+      text: const TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+
+    expect(tester.getSize(find.byType(SlotText)).width, painter.size.width);
+  });
+
   testWidgets('declarative text changes roll then settle', (tester) async {
     await tester.pumpWidget(
       const Directionality(

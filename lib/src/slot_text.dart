@@ -155,12 +155,14 @@ class SlotWaiting {
       frameBuilder = null;
 
   /// Generates each frame with [frameBuilder] every [step].
-  const SlotWaiting.builder(SlotWaitingFrameBuilder this.frameBuilder, {this.step})
-    : _kind = _SlotWaitingKind.builder,
-      dots = 0,
-      dot = '',
-      rest = Duration.zero,
-      frames = const <String>[];
+  const SlotWaiting.builder(
+    SlotWaitingFrameBuilder this.frameBuilder, {
+    this.step,
+  }) : _kind = _SlotWaitingKind.builder,
+       dots = 0,
+       dot = '',
+       rest = Duration.zero,
+       frames = const <String>[];
 
   final _SlotWaitingKind _kind;
 
@@ -390,14 +392,13 @@ class SlotTextController extends ChangeNotifier {
   /// bounce variation, exit offset, and color fade — plus a short rest, so
   /// ticks land on a steady beat instead of queueing behind in-flight rolls.
   static Duration _steadyStep(SlotTextOptions options) {
-    final rollMs = (options.duration.inMilliseconds * (1 + options.bounce * 0.45))
-        .round();
+    final rollMs =
+        (options.duration.inMilliseconds * (1 + options.bounce * 0.45)).round();
     final fadeMs = options.color != null || options.colorBuilder != null
         ? options.colorFade.inMilliseconds
         : 0;
     return Duration(
-      milliseconds:
-          rollMs + options.exitOffset.inMilliseconds + fadeMs + 160,
+      milliseconds: rollMs + options.exitOffset.inMilliseconds + fadeMs + 160,
     );
   }
 
@@ -765,6 +766,22 @@ class _SlotTextState extends State<SlotText>
       child = AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
+          final fromMetrics = _TextRunMetrics.of(
+            context: context,
+            style: style,
+            textDirection: direction,
+            locale: widget.locale,
+            strutStyle: widget.strutStyle,
+            text: plan.fromText,
+          );
+          final toMetrics = _TextRunMetrics.of(
+            context: context,
+            style: style,
+            textDirection: direction,
+            locale: widget.locale,
+            strutStyle: widget.strutStyle,
+            text: plan.toText,
+          );
           return Row(
             key: const ValueKey('slot_text_rolling'),
             mainAxisSize: MainAxisSize.min,
@@ -773,6 +790,8 @@ class _SlotTextState extends State<SlotText>
               for (final slot in plan.slots)
                 _GlyphSlot(
                   slot: slot,
+                  fromMetrics: fromMetrics,
+                  toMetrics: toMetrics,
                   progressMs:
                       _controller.value * plan.totalDuration.inMilliseconds,
                   style: style,
@@ -811,26 +830,26 @@ class _SettledSlotText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metrics = _GlyphMetrics.of(
+    final runMetrics = _TextRunMetrics.of(
       context: context,
       style: style,
       textDirection: textDirection,
       locale: locale,
       strutStyle: strutStyle,
-      from: text,
-      to: text,
+      text: text,
     );
     return SizedBox(
-      height: metrics.height,
+      height: runMetrics.height,
       child: Row(
         key: const ValueKey('slot_text_settled_glyphs'),
         mainAxisSize: MainAxisSize.min,
         textDirection: textDirection,
         children: [
-          for (final glyph in text.characters)
+          for (final (index, glyph) in text.characters.indexed)
             _SettledGlyphSlot(
               glyph,
-              height: metrics.height,
+              width: runMetrics.widthAt(index),
+              height: runMetrics.height,
               style: style,
               textDirection: textDirection,
               locale: locale,
@@ -845,6 +864,7 @@ class _SettledSlotText extends StatelessWidget {
 class _SettledGlyphSlot extends StatelessWidget {
   const _SettledGlyphSlot(
     this.glyph, {
+    required this.width,
     required this.height,
     required this.style,
     required this.textDirection,
@@ -853,6 +873,7 @@ class _SettledGlyphSlot extends StatelessWidget {
   });
 
   final String glyph;
+  final double width;
   final double height;
   final TextStyle style;
   final TextDirection textDirection;
@@ -861,23 +882,14 @@ class _SettledGlyphSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metrics = _GlyphMetrics.of(
-      context: context,
-      style: style,
-      textDirection: textDirection,
-      locale: locale,
-      strutStyle: strutStyle,
-      from: glyph,
-      to: glyph,
-    );
     return SizedBox(
-      width: metrics.toWidth,
+      width: width,
       height: height,
       child: Align(
-        alignment: Alignment.center,
+        alignment: _inlineStartAlignment(textDirection),
         child: _GlyphFace(
           glyph,
-          width: metrics.toWidth,
+          width: width,
           height: height,
           style: style,
           textDirection: textDirection,
@@ -892,6 +904,8 @@ class _SettledGlyphSlot extends StatelessWidget {
 class _GlyphSlot extends StatelessWidget {
   const _GlyphSlot({
     required this.slot,
+    required this.fromMetrics,
+    required this.toMetrics,
     required this.progressMs,
     required this.style,
     required this.textDirection,
@@ -900,6 +914,8 @@ class _GlyphSlot extends StatelessWidget {
   });
 
   final _SlotPlan slot;
+  final _TextRunMetrics fromMetrics;
+  final _TextRunMetrics toMetrics;
   final double progressMs;
   final TextStyle style;
   final TextDirection textDirection;
@@ -908,25 +924,27 @@ class _GlyphSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final metrics = _GlyphMetrics(
+      fromWidth: slot.from.isEmpty ? 0 : fromMetrics.widthAt(slot.index),
+      toWidth: slot.to.isEmpty ? 0 : toMetrics.widthAt(slot.index),
+      height: math.max(fromMetrics.height, toMetrics.height),
+    );
+
     if (!slot.changed) {
-      return _GlyphText(
-        slot.to,
-        style: style,
-        textDirection: textDirection,
-        locale: locale,
-        strutStyle: strutStyle,
+      return SizedBox(
+        width: metrics.toWidth,
+        height: metrics.height,
+        child: _GlyphFace(
+          slot.to,
+          width: metrics.toWidth,
+          height: metrics.height,
+          style: style,
+          textDirection: textDirection,
+          locale: locale,
+          strutStyle: strutStyle,
+        ),
       );
     }
-
-    final metrics = _GlyphMetrics.of(
-      context: context,
-      style: style,
-      textDirection: textDirection,
-      locale: locale,
-      strutStyle: strutStyle,
-      from: slot.from,
-      to: slot.to,
-    );
     final width = ui.lerpDouble(
       metrics.fromWidth,
       metrics.toWidth,
@@ -946,7 +964,7 @@ class _GlyphSlot extends StatelessWidget {
         height: metrics.height,
         child: Stack(
           clipBehavior: Clip.none,
-          alignment: Alignment.center,
+          alignment: _inlineStartAlignment(textDirection),
           children: [
             if (slot.from.isNotEmpty)
               Opacity(
@@ -1030,12 +1048,13 @@ class _GlyphFace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return OverflowBox(
-      alignment: Alignment.center,
+      alignment: _inlineStartAlignment(textDirection),
       minWidth: width,
       maxWidth: width,
       minHeight: height,
       maxHeight: height,
-      child: Center(
+      child: Align(
+        alignment: _inlineStartAlignment(textDirection),
         child: _GlyphText(
           text,
           style: style,
@@ -1073,6 +1092,87 @@ class _GlyphText extends StatelessWidget {
       strutStyle: strutStyle,
       softWrap: false,
     );
+  }
+}
+
+class _TextRunMetrics {
+  const _TextRunMetrics({required this.widths, required this.height});
+
+  final List<double> widths;
+  final double height;
+
+  double widthAt(int index) {
+    if (index < 0 || index >= widths.length) {
+      return 0;
+    }
+    return widths[index];
+  }
+
+  static _TextRunMetrics of({
+    required BuildContext context,
+    required TextStyle style,
+    required TextDirection textDirection,
+    required Locale? locale,
+    required StrutStyle? strutStyle,
+    required String text,
+  }) {
+    if (text.isEmpty) {
+      final metrics = _GlyphMetrics.of(
+        context: context,
+        style: style,
+        textDirection: textDirection,
+        locale: locale,
+        strutStyle: strutStyle,
+        from: ' ',
+        to: ' ',
+      );
+      return _TextRunMetrics(widths: const <double>[], height: metrics.height);
+    }
+
+    final textScaler =
+        MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling;
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: textDirection,
+      textScaler: textScaler,
+      locale: locale,
+      strutStyle: strutStyle,
+      maxLines: 1,
+    )..layout();
+
+    final chars = text.characters.toList();
+    final offsets = <int>[0];
+    var offset = 0;
+    for (final char in chars) {
+      offset += char.length;
+      offsets.add(offset);
+    }
+
+    final widths = <double>[];
+    for (var i = 0; i < chars.length; i++) {
+      final start = _caretDx(painter, offsets[i]);
+      final end = _caretDx(painter, offsets[i + 1]);
+      final width = (end - start).abs();
+      widths.add(width);
+    }
+
+    final measured = widths.fold<double>(0, (sum, width) => sum + width);
+    if (widths.isNotEmpty && (measured - painter.size.width).abs() > 0.01) {
+      widths[widths.length - 1] += painter.size.width - measured;
+    }
+
+    final textHeight = painter.size.height;
+    final verticalBreathingRoom = math.max(6.0, textHeight * 0.18);
+    return _TextRunMetrics(
+      widths: widths,
+      height: textHeight + verticalBreathingRoom * 2,
+    );
+  }
+
+  static double _caretDx(TextPainter painter, int offset) {
+    return painter
+        .getOffsetForCaret(TextPosition(offset: offset), Rect.zero)
+        .dx;
   }
 }
 
@@ -1143,6 +1243,12 @@ class _GlyphMetrics {
   }
 }
 
+Alignment _inlineStartAlignment(TextDirection textDirection) {
+  return textDirection == TextDirection.rtl
+      ? Alignment.centerRight
+      : Alignment.centerLeft;
+}
+
 class _SlotTextCommand {
   const _SlotTextCommand(this.text, this.options, {this.force = false});
 
@@ -1152,8 +1258,15 @@ class _SlotTextCommand {
 }
 
 class _RollPlan {
-  const _RollPlan({required this.slots, required this.totalDuration});
+  const _RollPlan({
+    required this.fromText,
+    required this.toText,
+    required this.slots,
+    required this.totalDuration,
+  });
 
+  final String fromText;
+  final String toText;
   final List<_SlotPlan> slots;
   final Duration totalDuration;
 
@@ -1212,6 +1325,7 @@ class _RollPlan {
       }
       slots.add(
         _SlotPlan(
+          index: i,
           from: from,
           to: to,
           changed: !unchanged,
@@ -1231,6 +1345,8 @@ class _RollPlan {
     }
 
     return _RollPlan(
+      fromText: fromText,
+      toText: toText,
       slots: slots,
       totalDuration: Duration(milliseconds: maxEndMs),
     );
@@ -1239,6 +1355,7 @@ class _RollPlan {
 
 class _SlotPlan {
   const _SlotPlan({
+    required this.index,
     required this.from,
     required this.to,
     required this.changed,
@@ -1253,6 +1370,7 @@ class _SlotPlan {
     required this.overshoot,
   });
 
+  final int index;
   final String from;
   final String to;
   final bool changed;
