@@ -1,0 +1,26 @@
+name: slot_text
+description: A tactile Flutter text roll animation for tiny labels, counters, status text, and command buttons.
+version: 0.0.1
+homepage: https://kicknext.github.io/slot_text/
+repository: https://github.com/KickNext/slot_text
+issue_tracker: https://github.com/KickNext/slot_text/issues
+topics:
+  - animation
+  - text
+  - widget
+  - flutter
+
+environment:
+  sdk: ^3.12.1
+  flutter: ">=3.44.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
